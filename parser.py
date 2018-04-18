@@ -1,155 +1,191 @@
 from display import *
 from matrix import *
 from draw import *
+import copy
 
 """
 Goes through the file named filename and performs all of the actions listed in that file.
 The file follows the following format:
-     Every command is a single character that takes up a line
-     Any command that requires arguments must have those arguments in the second line.
-     The commands are as follows:
+   Every command is a single character that takes up a line
+   Any command that requires arguments must have those arguments in the second line.
+   The commands are as follows:
 
-         push: push a copy of the current top of the coordinate system stack to the stack
+     push: push a copy of the current top of the coordinate system stack to the stack
 
-         pop: pop off the current top of the coordinate system stack
+     pop: pop off the current top of the coordinate system stack
 
-         All the shape commands work as follows:
-             1) Add the shape to a temporary matrix
-             2) Multiply that matrix by the current top of the coordinate system stack
-             3) Draw the shape to the screen
-             4) Clear the temporary matrix
+     All the shape commands work as follows:
+       1) Add the shape to a temporary matrix
+       2) Multiply that matrix by the current top of the coordinate system stack
+       3) Draw the shape to the screen
+       4) Clear the temporary matrix
 
-         sphere: add a sphere -
-                 takes 4 arguemnts (cx, cy, cz, r)
-         torus: add a torus -
-                takes 5 arguemnts (cx, cy, cz, r1, r2)
-         box: add a rectangular prism -
-              takes 6 arguemnts (x, y, z, width, height, depth)
+     sphere: add a sphere -
+         takes 4 arguemnts (cx, cy, cz, r)
+     torus: add a torus -
+        takes 5 arguemnts (cx, cy, cz, r1, r2)
+     box: add a rectangular prism -
+        takes 6 arguemnts (x, y, z, width, height, depth)
 
-         circle: add a circle -
-                 takes 3 arguments (cx, cy, r)
-         hermite: add a hermite curve -
-                  takes 8 arguments (x0, y0, x1, y1, rx0, ry0, rx1, ry1)
-         bezier: add a bezier curve -
-                 takes 8 arguments (x0, y0, x1, y1, x2, y2, x3, y3)
-         line: add a line -
-               takes 6 arguemnts (x0, y0, z0, x1, y1, z1)
+     circle: add a circle -
+         takes 3 arguments (cx, cy, r)
+     hermite: add a hermite curve -
+          takes 8 arguments (x0, y0, x1, y1, rx0, ry0, rx1, ry1)
+     bezier: add a bezier curve -
+         takes 8 arguments (x0, y0, x1, y1, x2, y2, x3, y3)
+     line: add a line -
+         takes 6 arguemnts (x0, y0, z0, x1, y1, z1)
 
-         All the transformation commands work as follows:
-             1) Create the appropriate transformation matrix
-             2) Multiply that matrix by current top of the coordinate system stack
+     All the transformation commands work as follows:
+       1) Create the appropriate transformation matrix
+       2) Multiply that matrix by current top of the coordinate system stack
 
-         scale: takees 3 arguments (sx, sy, sz)
-         move:  takes 3 arguments (tx, ty, tz)
-         rotate: takes 2 arguments (axis, theta) axis should be x, y or z
+     scale: takees 3 arguments (sx, sy, sz)
+     move:  takes 3 arguments (tx, ty, tz)
+     rotate: takes 2 arguments (axis, theta) axis should be x, y or z
 
-         display: display the screen
-         save: save the screen to a file -
-               takes 1 argument (file name)
-         quit: end parsing
+     display: display the screen
+     save: save the screen to a file -
+         takes 1 argument (file name)
+     quit: end parsing
 
 See the file script for an example of the file format
 """
 ARG_COMMANDS = [ 'line', 'scale', 'move', 'rotate', 'save', 'circle', 'bezier', 'hermite', 'box', 'sphere', 'torus' ]
 
 def parse_file( fname, edges, polygons, transform, screen, color ):
+  f = open(fname)
+  lines = f.readlines()
 
-    f = open(fname)
-    lines = f.readlines()
+  step = 100
+  step_3d = 20
 
-    step = 100
-    step_3d = 20
+  stack = []
+  m = new_matrix()
+  ident(m)
+  stack.append(m)
 
-    c = 0
-    while c < len(lines):
-        line = lines[c].strip()
-        #print ':' + line + ':'
 
-        if line in ARG_COMMANDS:
-            c+= 1
-            args = lines[c].strip().split(' ')
-            #print 'args\t' + str(args)
+  c = 0
+  while c < len(lines):
+    #print stack
+    line = lines[c].strip()
+    #print ':' + line + ':'
 
-        if line == 'sphere':
-            #print 'SPHERE\t' + str(args)
-            add_sphere(polygons,
-                       float(args[0]), float(args[1]), float(args[2]),
-                       float(args[3]), step_3d)
+    if line in ARG_COMMANDS:
+      c+= 1
+      args = lines[c].strip().split(' ')
+      #print 'args\t' + str(args)
 
-        elif line == 'torus':
-            #print 'TORUS\t' + str(args)
-            add_torus(polygons,
-                      float(args[0]), float(args[1]), float(args[2]),
-                      float(args[3]), float(args[4]), step_3d)
+    # new stack stuff
+    if line == 'push':
+      last = copy.deepcopy(stack[-1])
+      stack.append(last)
 
-        elif line == 'box':
-            #print 'BOX\t' + str(args)
-            add_box(polygons,
-                    float(args[0]), float(args[1]), float(args[2]),
-                    float(args[3]), float(args[4]), float(args[5]))
+    elif line == 'pop':
+      stack.pop()
 
-        elif line == 'circle':
-            #print 'CIRCLE\t' + str(args)
-            add_circle(edges,
-                       float(args[0]), float(args[1]), float(args[2]),
-                       float(args[3]), step)
 
-        elif line == 'hermite' or line == 'bezier':
-            #print 'curve\t' + line + ": " + str(args)
-            add_curve(edges,
-                      float(args[0]), float(args[1]),
-                      float(args[2]), float(args[3]),
-                      float(args[4]), float(args[5]),
-                      float(args[6]), float(args[7]),
-                      step, line)
+    elif line == 'sphere':
+      #print 'SPHERE\t' + str(args)
+      add_sphere(polygons,
+        float(args[0]), float(args[1]), float(args[2]),
+        float(args[3]), step_3d)
+      matrix_mult(stack[-1], polygons)
+      draw_polygons(polygons, screen, color)
+      del polygons[:]
 
-        elif line == 'line':
-            #print 'LINE\t' + str(args)
+    elif line == 'torus':
+      #print 'TORUS\t' + str(args)
+      add_torus(polygons,
+        float(args[0]), float(args[1]), float(args[2]),
+        float(args[3]), float(args[4]), step_3d)
+      matrix_mult(stack[-1], polygons)
+      draw_polygons(polygons, screen, color)
+      del polygons[:]
 
-            add_edge( edges,
-                      float(args[0]), float(args[1]), float(args[2]),
-                      float(args[3]), float(args[4]), float(args[5]) )
+    elif line == 'box':
+      #print 'BOX\t' + str(args)
+      add_box(polygons,
+        float(args[0]), float(args[1]), float(args[2]),
+        float(args[3]), float(args[4]), float(args[5]))
+      matrix_mult(stack[-1], polygons)
+      draw_polygons(polygons, screen, color)
+      del polygons[:]
 
-        elif line == 'scale':
-            #print 'SCALE\t' + str(args)
-            t = make_scale(float(args[0]), float(args[1]), float(args[2]))
-            matrix_mult(t, transform)
+    elif line == 'circle':
+      #print 'CIRCLE\t' + str(args)
+      add_circle(edges,
+        float(args[0]), float(args[1]), float(args[2]),
+        float(args[3]), step)
+      matrix_mult(stack[-1], edges)
+      draw_lines(edges, screen, color)
+      del edges[:]
 
-        elif line == 'move':
-            #print 'MOVE\t' + str(args)
-            t = make_translate(float(args[0]), float(args[1]), float(args[2]))
-            matrix_mult(t, transform)
+    elif line == 'hermite' or line == 'bezier':
+      #print 'curve\t' + line + ": " + str(args)
+      add_curve(edges,
+        float(args[0]), float(args[1]),
+        float(args[2]), float(args[3]),
+        float(args[4]), float(args[5]),
+        float(args[6]), float(args[7]),
+        step, line)
+      matrix_mult(stack[-1], edges)
+      draw_lines(edges, screen, color)
+      del edges[:]
 
-        elif line == 'rotate':
-            #print 'ROTATE\t' + str(args)
-            theta = float(args[1]) * (math.pi / 180)
+    elif line == 'line':
+      add_edge( edges,
+        float(args[0]), float(args[1]), float(args[2]),
+        float(args[3]), float(args[4]), float(args[5]))
+      matrix_mult(stack[-1], edges)
+      draw_lines(edges, screen, color)
+      del edges[:]
 
-            if args[0] == 'x':
-                t = make_rotX(theta)
-            elif args[0] == 'y':
-                t = make_rotY(theta)
-            else:
-                t = make_rotZ(theta)
-            matrix_mult(t, transform)
+    elif line == 'scale':
+      #print 'SCALE\t' + str(args)
+      t = make_scale(float(args[0]), float(args[1]), float(args[2]))
+      matrix_mult(t, transform)
+      matrix_mult(stack.pop(), t)
+      stack.append(t)
 
-        elif line == 'clear':
-            edges = []
-            polygons = []
+    elif line == 'move':
+      #print 'MOVE\t' + str(args)
+      t = make_translate(float(args[0]), float(args[1]), float(args[2]))
+      matrix_mult(t, transform)
+      matrix_mult(stack.pop(), t)
+      stack.append(t)
 
-        elif line == 'ident':
-            ident(transform)
+    elif line == 'rotate':
+      #print 'ROTATE\t' + str(args)
+      theta = float(args[1]) * (math.pi / 180)
 
-        elif line == 'apply':
-            matrix_mult( transform, edges )
-            matrix_mult( transform, polygons )
+      if args[0] == 'x':
+        t = make_rotX(theta)
+      elif args[0] == 'y':
+        t = make_rotY(theta)
+      else:
+        t = make_rotZ(theta)
+      matrix_mult(t, transform)
+      matrix_mult(stack.pop(), t)
+      stack.append(t)
 
-        elif line == 'display' or line == 'save':
-            clear_screen(screen)
-            draw_lines(edges, screen, color)
-            draw_polygons(polygons, screen, color)
+    # outdated commands!
+    # elif line == 'clear':
+    #   edges = []
+    #   polygons = []
 
-            if line == 'display':
-                display(screen)
-            else:
-                save_extension(screen, args[0])
-        c+= 1
+    # elif line == 'ident':
+    #   ident(transform)
+
+    # elif line == 'apply':
+    #   matrix_mult( transform, edges )
+    #   matrix_mult( transform, polygons )
+
+    elif line == 'display':
+      display(screen)
+
+    elif line == 'save':
+      save_extension(screen, args[0])
+
+    c+= 1
